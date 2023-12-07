@@ -1,5 +1,8 @@
+
+from threading import Thread
 from sys import argv
 from pathlib import Path
+import shutil
 import os
 
 class SortFile:
@@ -42,7 +45,6 @@ class SortFile:
     def create_directories(self, path):
         for name in self.FOLDERS_DATA:
             folder_path = f"{path.parent}/{path.name}/{name}"
-
             if not Path(folder_path).exists():
                 os.mkdir(folder_path)
 
@@ -63,7 +65,8 @@ class SortFile:
         if parent_folder_name:
             file_name = self.create_file_name(f"{self.DEFAULT_PATH}/{parent_folder_name}/{self.normalize(file_name)}", path.suffix)
             os.rename(path, file_name)
-            print(path, '-->', file_name)
+            # print(path, '-->', file_name)
+
 
     def arrange(self, path):
         if not path.exists():
@@ -73,23 +76,64 @@ class SortFile:
         else:
             for i in path.iterdir():
                 if i.is_dir() and i.name not in self.FOLDERS_DATA:
-                    self.arrange(i)
-                    try:
-                        os.rmdir(i)
-                    except OSError as error:
-                        print(error)
-                        print(f"Path {i} can't be removed")
+                    thread1 = Thread(target = self.arrange, args=(i,))
+                    thread1.start()
+                    threads.append(thread1)
+                    # self.arrange(i)
+                    # try:
+                    #     os.rmdir(i)
+                    # except OSError as error:
+                    #     print(error)
+                    #     print(f"Path {i} can't be removed")
                 elif i.is_file():
-                    self.handle_file(i)
+                    thread2 = Thread(target = self.handle_file, args=(i,))
+                    thread2.start()
+                    threads.append(thread2)
+                    # self.handle_file(i)
+
+
+
+    # tread for unpack
+    def unpac_tread(self, i, string):
+        shutil.unpack_archive(i, string)
+
+    def archives(self, path):
+        p = Path(f'{path}\\archives\\')   # p Вказує на папку
+        for i in p.iterdir():
+            if i.is_file():
+                thread = Thread(target=self.unpac_tread, args=(i,  str(i)[: str(i).rindex('.')]))
+                thread.start()
+                # shutil.unpack_archive(i,  str(i)[: str(i).rindex('.')])
+
+
+    def empty_dirs_delet(self, path):
+        p = Path(path)    # p Вказує на папку
+        for i in p.iterdir():
+             if i.is_dir() and i.name not in self.FOLDERS_DATA:
+                contents = os.listdir(i)
+                if len(contents) == 0:
+                    # print("deleting empty dir =", i)
+                    shutil.rmtree(i)
+                    self.empty_dirs_delet(path="")
+                else:
+                    self.empty_dirs_delet(path=i)
+
+
+
+
 
 if __name__ == "__main__":
     if len(argv) < 2:
-        print('Param folder is required!')
+        print('to short folder name!')
         exit()
-
+    # argv.append("D:\\goit\\hlam")
     organizer = SortFile(argv[1])
     lst = organizer.makelist(argv[1])
     print(lst)
+    threads = []
     organizer.create_directories(organizer.DEFAULT_PATH)
     organizer.arrange(organizer.DEFAULT_PATH)
+    [el.join() for el in threads]
+    organizer.empty_dirs_delet(organizer.DEFAULT_PATH)
+    organizer.archives(organizer.DEFAULT_PATH)
 
